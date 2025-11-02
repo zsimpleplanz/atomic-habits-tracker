@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Build better habits using the 4 Laws of Behavior Change">
+    <title>Atomic Habits Tracker</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const AtomicHabitsTracker = () => {
+          const [habits, setHabits] = useState([]);
+          const [showAddForm, setShowAddForm] = useState(false);
+          const [activeTab, setActiveTab] = useState('tracker');
+          const [newHabit, setNewHabit] = useState({
+            name: '',
+            category: 'health',
+            law1_cue: '',
+            law2_attractive: '',
+            law3_easy: '',
+            law4_satisfying: ''
+          });
+
+          useEffect(() => {
+            loadHabits();
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.register('sw.js');
+            }
+          }, []);
+
+          const loadHabits = () => {
+            try {
+              const data = localStorage.getItem('atomic-habits-data');
+              if (data) {
+                const parsed = JSON.parse(data);
+                setHabits(parsed.habits || []);
+              }
+            } catch (error) {
+              console.log('No existing data found');
+            }
+          };
+
+          const saveHabits = (updatedHabits) => {
+            try {
+              localStorage.setItem('atomic-habits-data', JSON.stringify({
+                habits: updatedHabits
+              }));
+              setHabits(updatedHabits);
+            } catch (error) {
+              console.error('Failed to save:', error);
+            }
+          };
+
+          const addHabit = () => {
+            if (!newHabit.name.trim()) return;
+
+            const habit = {
+              id: Date.now(),
+              ...newHabit,
+              streak: 0,
+              completions: [],
+              createdAt: new Date().toISOString()
+            };
+
+            saveHabits([...habits, habit]);
+            setNewHabit({
+              name: '',
+              category: 'health',
+              law1_cue: '',
+              law2_attractive: '',
+              law3_easy: '',
+              law4_satisfying: ''
+            });
+            setShowAddForm(false);
+          };
+
+          const toggleHabitToday = (habitId) => {
+            const today = new Date().toISOString().split('T')[0];
+            const updatedHabits = habits.map(habit => {
+              if (habit.id === habitId) {
+                const completions = habit.completions || [];
+                const isCompletedToday = completions.includes(today);
+                
+                let newCompletions;
+                if (isCompletedToday) {
+                  newCompletions = completions.filter(d => d !== today);
+                } else {
+                  newCompletions = [...completions, today];
+                }
+
+                return {
+                  ...habit,
+                  completions: newCompletions,
+                  streak: calculateStreak(newCompletions)
+                };
+              }
+              return habit;
+            });
+
+            saveHabits(updatedHabits);
+          };
+
+          const calculateStreak = (completions) => {
+            if (!completions || completions.length === 0) return 0;
+            
+            const sorted = [...completions].sort().reverse();
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (sorted[0] !== today) {
+              const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+              if (sorted[0] !== yesterday) return 0;
+            }
+            
+            let streak = 0;
+            let currentDate = new Date();
+            
+            for (let i = 0; i < sorted.length; i++) {
+              const checkDate = new Date(currentDate);
+              checkDate.setDate(checkDate.getDate() - i);
+              const dateStr = checkDate.toISOString().split('T')[0];
+              
+              if (sorted.includes(dateStr)) {
+                streak++;
+              } else {
+                break;
+              }
+            }
+            
+            return streak;
+          };
+
+          const deleteHabit = (habitId) => {
+            saveHabits(habits.filter(h => h.id !== habitId));
+          };
+
+          const isCompletedToday = (habit) => {
+            const today = new Date().toISOString().split('T')[0];
+            return habit.completions?.includes(today);
+          };
+
+          const getCategoryColor = (category) => {
+            const colors = {
+              health: 'bg-green-100 text-green-800',
+              productivity: 'bg-blue-100 text-blue-800',
+              learning: 'bg-purple-100 text-purple-800',
+              mindfulness: 'bg-pink-100 text-pink-800',
+              social: 'bg-yellow-100 text-yellow-800'
+            };
+            return colors[category] || 'bg-gray-100 text-gray-800';
+          };
+
+          const laws = [
+            {
+              number: 1,
+              name: 'Make it Obvious',
+              icon: '👁️',
+              description: 'Design your environment to make cues visible',
+              prompt: 'What will remind you? (e.g., "Put yoga mat by bed")'
+            },
+            {
+              number: 2,
+              name: 'Make it Attractive',
+              icon: '✨',
+              description: 'Pair the habit with something you enjoy',
+              prompt: 'How will you make it appealing? (e.g., "Listen to favorite podcast while exercising")'
+            },
+            {
+              number: 3,
+              name: 'Make it Easy',
+              icon: '⚡',
+              description: 'Reduce friction and start small',
+              prompt: 'How will you simplify it? (e.g., "Just 2 minutes to start")'
+            },
+            {
+              number: 4,
+              name: 'Make it Satisfying',
+              icon: '🎉',
+              description: 'Create immediate rewards',
+              prompt: 'How will you celebrate? (e.g., "Check it off, track the streak")'
+            }
+          ];
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+              <div className="max-w-6xl mx-auto p-4 md:p-8">
+                
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-4xl">✨</span>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                      Atomic Habits Tracker
+                    </h1>
+                  </div>
+                  <p className="text-gray-600">Build better habits, one tiny change at a time</p>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 mb-6 bg-white rounded-lg p-1 shadow-sm">
+                  <button
+                    onClick={() => setActiveTab('tracker')}
+                    className={`flex-1 py-3 px-4 rounded-md font-medium transition-all ${
+                      activeTab === 'tracker'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    🎯 My Habits
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('laws')}
+                    className={`flex-1 py-3 px-4 rounded-md font-medium transition-all ${
+                      activeTab === 'laws'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    📖 4 Laws
+                  </button>
+                </div>
+
+                {/* Tracker Tab */}
+                {activeTab === 'tracker' && (
+                  <div>
+                    {/* Add Habit Button */}
+                    {!showAddForm && (
+                      <button
+                        onClick={() => setShowAddForm(true)}
+                        className="w-full mb-6 py-4 bg-white border-2 border-dashed border-indigo-300 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 text-indigo-600 font-medium"
+                      >
+                        <span className="text-xl">+</span>
+                        Create New Habit
+                      </button>
+                    )}
+
+                    {/* Add Habit Form */}
+                    {showAddForm && (
+                      <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-indigo-100">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">Create Your Atomic Habit</h3>
+                        
+                        <input
+                          type="text"
+                          placeholder="Habit name (e.g., 'Morning meditation')"
+                          value={newHabit.name}
+                          onChange={(e) => setNewHabit({...newHabit, name: e.target.value})}
+                          className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+
+                        <select
+                          value={newHabit.category}
+                          onChange={(e) => setNewHabit({...newHabit, category: e.target.value})}
+                          className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="health">Health & Fitness</option>
+                          <option value="productivity">Productivity</option>
+                          <option value="learning">Learning</option>
+                          <option value="mindfulness">Mindfulness</option>
+                          <option value="social">Social</option>
+                        </select>
+
+                        <div className="space-y-4 mb-4">
+                          {laws.map((law, idx) => (
+                            <div key={law.number} className="bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-lg">
+                              <div className="flex items-start gap-3 mb-2">
+                                <span className="text-2xl">{law.icon}</span>
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-gray-800">{law.name}</h4>
+                                  <p className="text-sm text-gray-600">{law.description}</p>
+                                </div>
+                              </div>
+                              <input
+                                type="text"
+                                placeholder={law.prompt}
+                                value={newHabit[`law${law.number}_${['cue', 'attractive', 'easy', 'satisfying'][idx]}`]}
+                                onChange={(e) => setNewHabit({
+                                  ...newHabit,
+                                  [`law${law.number}_${['cue', 'attractive', 'easy', 'satisfying'][idx]}`]: e.target.value
+                                })}
+                                className="w-full p-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={addHabit}
+                            className="flex-1 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+                          >
+                            Create Habit
+                          </button>
+                          <button
+                            onClick={() => setShowAddForm(false)}
+                            className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-medium transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Habits List */}
+                    <div className="space-y-4">
+                      {habits.length === 0 ? (
+                        <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+                          <span className="text-6xl">🎯</span>
+                          <p className="text-gray-500 mt-4">No habits yet. Create your first atomic habit!</p>
+                        </div>
+                      ) : (
+                        habits.map(habit => (
+                          <div key={habit.id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 border border-gray-100">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="text-xl font-bold text-gray-800">{habit.name}</h3>
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(habit.category)}`}>
+                                    {habit.category}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                  <span className="flex items-center gap-1">
+                                    📈 {habit.streak} day streak
+                                  </span>
+                                  <span>{habit.completions?.length || 0} total completions</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => deleteHabit(habit.id)}
+                                className="text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                ✕
+                              </button>
+                            </div>
+
+                            {/* 4 Laws Display */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                              {[
+                                { icon: '👁️', label: 'Cue', value: habit.law1_cue },
+                                { icon: '✨', label: 'Attractive', value: habit.law2_attractive },
+                                { icon: '⚡', label: 'Easy', value: habit.law3_easy },
+                                { icon: '🎉', label: 'Satisfying', value: habit.law4_satisfying }
+                              ].map((law, idx) => (
+                                law.value && (
+                                  <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span>{law.icon}</span>
+                                      <span className="text-xs font-semibold text-gray-600">{law.label}</span>
+                                    </div>
+                                    <p className="text-sm text-gray-700">{law.value}</p>
+                                  </div>
+                                )
+                              ))}
+                            </div>
+
+                            {/* Check Button */}
+                            <button
+                              onClick={() => toggleHabitToday(habit.id)}
+                              className={`w-full py-3 rounded-lg font-medium transition-all ${
+                                isCompletedToday(habit)
+                                  ? 'bg-green-500 text-white hover:bg-green-600'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-indigo-100 hover:text-indigo-700'
+                              }`}
+                            >
+                              {isCompletedToday(habit) ? (
+                                <span className="flex items-center justify-center gap-2">
+                                  ✓ Completed Today!
+                                </span>
+                              ) : (
+                                'Mark as Done Today'
+                              )}
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4 Laws Tab */}
+                {activeTab === 'laws' && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl shadow-md p-6 border border-indigo-100">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-4">The Four Laws of Behavior Change</h2>
+                      <p className="text-gray-600 mb-6">
+                        Based on James Clear's Atomic Habits, these four laws help you create good habits and break bad ones.
+                      </p>
+                    </div>
+
+                    {laws.map((law) => (
+                      <div key={law.number} className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                        <div className="flex items-start gap-4">
+                          <div className="text-5xl">{law.icon}</div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">
+                                {law.number}
+                              </span>
+                              <h3 className="text-2xl font-bold text-gray-800">{law.name}</h3>
+                            </div>
+                            <p className="text-gray-700 mb-4 text-lg">{law.description}</p>
+                            
+                            <div className="bg-indigo-50 p-4 rounded-lg">
+                              <h4 className="font-semibold text-indigo-900 mb-2">How to apply:</h4>
+                              <p className="text-indigo-800">{law.prompt}</p>
+                            </div>
+
+                            {law.number === 1 && (
+                              <div className="mt-4 text-sm text-gray-600 space-y-1">
+                                <p>• Use implementation intentions: "I will [BEHAVIOR] at [TIME] in [LOCATION]"</p>
+                                <p>• Stack habits: "After [CURRENT HABIT], I will [NEW HABIT]"</p>
+                                <p>• Design your environment to make cues visible</p>
+                              </div>
+                            )}
+                            {law.number === 2 && (
+                              <div className="mt-4 text-sm text-gray-600 space-y-1">
+                                <p>• Bundle temptations: pair what you need to do with what you want to do</p>
+                                <p>• Join a culture where your desired behavior is normal</p>
+                                <p>• Create a motivation ritual before difficult habits</p>
+                              </div>
+                            )}
+                            {law.number === 3 && (
+                              <div className="mt-4 text-sm text-gray-600 space-y-1">
+                                <p>• Reduce friction: decrease steps between you and good habits</p>
+                                <p>• Use the 2-minute rule: downscale habits until they take 2 minutes</p>
+                                <p>• Prime your environment for future use</p>
+                              </div>
+                            )}
+                            {law.number === 4 && (
+                              <div className="mt-4 text-sm text-gray-600 space-y-1">
+                                <p>• Use habit tracking: the act of tracking is satisfying</p>
+                                <p>• Never miss twice: if you miss one day, get back on track immediately</p>
+                                <p>• Get an accountability partner or make a habit contract</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md p-6 text-white">
+                      <h3 className="text-xl font-bold mb-3">Remember: Small Changes, Remarkable Results</h3>
+                      <p className="text-indigo-100">
+                        Habits are the compound interest of self-improvement. Getting 1% better every day counts for a lot in the long run. 
+                        Focus on systems, not goals, and trust the process of tiny gains.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<AtomicHabitsTracker />, document.getElementById('root'));
+    </script>
+</body>
+</html>
