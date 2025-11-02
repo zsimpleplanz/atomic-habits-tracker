@@ -1,0 +1,24 @@
+{
+  "name": "Atomic Habits Tracker",
+  "short_name": "Habits",
+  "description": "Build better habits using the 4 Laws of Behavior Change",
+  "start_url": "/atomic-habits-tracker/",
+  "display": "standalone",
+  "background_color": "#eef2ff",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
